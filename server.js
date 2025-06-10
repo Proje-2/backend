@@ -7,21 +7,19 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 
-// Görselin ortasındaki beyazlık yoğunluğuna göre çift sütun olup olmadığını tespit et
+// Orta sütun parlaklığına göre çift sütun mu kontrol et
 async function isDoubleColumn(base64) {
   const buffer = Buffer.from(base64.replace(/^data:image\/\w+;base64,/, ''), 'base64');
-  const image = sharp(buffer).greyscale(); // Griye çevir
+  const image = sharp(buffer).greyscale();
   const metadata = await image.metadata();
   const { width, height } = metadata;
   const middleX = Math.floor(width / 2);
 
-  // Orta dikey 1px genişliğinde sütun al
   const middleStrip = await image.extract({ left: middleX, top: 0, width: 1, height }).raw().toBuffer();
-
   const average = middleStrip.reduce((sum, val) => sum + val, 0) / middleStrip.length;
-  console.log("🧠 Orta sütun parlaklık ortalaması:", average);
 
-  return average > 180; // 180 üstü boşluk gibi -> çift sütun olabilir
+  console.log("🧠 Orta sütun parlaklık ortalaması:", average);
+  return average > 180; // çift sütun olabilir
 }
 
 // Görseli ortadan ikiye böler
@@ -33,6 +31,7 @@ async function splitImageBase64(base64) {
   const leftBuffer = await sharp(buffer)
     .extract({ left: 0, top: 0, width: halfWidth, height: metadata.height })
     .toBuffer();
+
   const rightBuffer = await sharp(buffer)
     .extract({ left: halfWidth, top: 0, width: metadata.width - halfWidth, height: metadata.height })
     .toBuffer();
@@ -52,12 +51,17 @@ app.post('/ocr', async (req, res) => {
 
   console.log('📸 Görsel alındı, OCR başlatılıyor...');
 
-  const worker = await createWorker('tur', 1);
-  await worker.setParameters({
-    tessedit_pageseg_mode: PSM.AUTO,
+  const worker = await createWorker({
+    logger: m => console.log(m),
   });
 
   try {
+    await worker.loadLanguage('tur+eng');
+    await worker.initialize('tur+eng');
+    await worker.setParameters({
+      tessedit_pageseg_mode: PSM.AUTO,
+    });
+
     let finalText = '';
     const isDouble = await isDoubleColumn(image);
 
