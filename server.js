@@ -52,7 +52,7 @@ app.post('/ocr', async (req, res) => {
 
   console.log('📸 Görsel alındı, OCR başlatılıyor...');
 
-  const worker = await createWorker('tur+eng', 1);
+  const worker = await createWorker(['eng', 'tur'], 1);
   await worker.setParameters({
     tessedit_pageseg_mode: PSM.AUTO,
   });
